@@ -28,6 +28,7 @@ function isMobileWeb(): boolean {
         navigator.userAgent.indexOf('IEMobile') !== -1
     )
 }
+
 function getDataGrid(
     index: number,
     maxWidth: number,
@@ -36,7 +37,7 @@ function getDataGrid(
         w: 1,
         maxW: maxWidth,
         minH: 1,
-        h: 4,
+        h: isMobileWeb() ? 3 : 4,
         x: index % maxWidth,
         y: 0,
     }
