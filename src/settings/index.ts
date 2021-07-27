@@ -49,6 +49,7 @@ export interface Settings {
 }
 
 interface SettingsSetters {
+    setSettings: (settings: Partial<Settings>) => void
     setBoardName: (boardName: string) => void
     setHiddenOperators: (hiddenOperators: ScooterOperator[]) => void
     setHiddenStations: (hiddenStations: string[]) => void
@@ -79,6 +80,7 @@ export const SettingsContext = createContext<
 >([
     null,
     {
+        setSettings: (): void => undefined,
         setBoardName: (): void => undefined,
         setHiddenOperators: (): void => undefined,
         setHiddenStations: (): void => undefined,
@@ -116,7 +118,7 @@ const DEFAULT_SETTINGS: Partial<Settings> = {
 }
 
 export function useSettings(): [Settings | null, SettingsSetters] {
-    const [settings, setSettings] = useState<Settings | null>(null)
+    const [settings, setLocalSettings] = useState<Settings | null>(null)
 
     const location = useLocation()
     const user = useFirebaseAuthentication()
@@ -129,7 +131,7 @@ export function useSettings(): [Settings | null, SettingsSetters] {
             location.pathname.split('/')[1] == 'tavler'
 
         if (protectedPath) {
-            setSettings(null)
+            setLocalSettings(null)
             return
         }
 
@@ -165,7 +167,7 @@ export function useSettings(): [Settings | null, SettingsSetters] {
                     })
                 }
 
-                setSettings((prevSettings) => {
+                setLocalSettings((prevSettings) => {
                     const onAdmin = location.pathname.split('/')[1] === 'admin'
                     return prevSettings && onAdmin
                         ? prevSettings
@@ -186,7 +188,7 @@ export function useSettings(): [Settings | null, SettingsSetters] {
             return
         }
 
-        setSettings({
+        setLocalSettings({
             ...DEFAULT_SETTINGS,
             ...restoreFromUrl(),
             coordinates: {
@@ -199,15 +201,33 @@ export function useSettings(): [Settings | null, SettingsSetters] {
     const set = useCallback(
         (key: string, value: FieldTypes): void => {
             const newSettings = { ...settings, [key]: value } as Settings
-            setSettings(newSettings)
+            setLocalSettings(newSettings)
 
             const id = getDocumentId()
-
             if (id) {
                 persistToFirebase(id, key, value)
                 return
             }
+
             persistToUrl(newSettings)
+        },
+        [settings],
+    )
+
+    const setSettings = useCallback(
+        (newSettings: Partial<Settings>) => {
+            const mergedSettings = { ...settings, ...newSettings } as Settings
+            setLocalSettings(mergedSettings)
+
+            const id = getDocumentId()
+            if (id) {
+                Object.entries(mergedSettings).map(([key, value]) => {
+                    persistToFirebase(id, key, value)
+                })
+                return
+            }
+
+            persistToUrl(mergedSettings)
         },
         [settings],
     )
@@ -357,6 +377,7 @@ export function useSettings(): [Settings | null, SettingsSetters] {
     )
 
     const setters = {
+        setSettings,
         setBoardName,
         setHiddenOperators,
         setHiddenStations,
